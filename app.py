@@ -1,4 +1,4 @@
-from openai import OpenAI
+from openai import OpenAI, Error
 import time
 import streamlit as st
 
@@ -48,11 +48,15 @@ def main():
                 content=prompt,
             )
 
-            # You need to create a run in order to tell the assistant at which thread to look at
-            run = st.session_state.client.beta.threads.runs.create(
-                thread_id=st.session_state.thread.id,
-                assistant_id=assistant_id,
-            )
+            try:
+                # Create a run and tell the assistant at which thread to look at
+                run = st.session_state.client.beta.threads.runs.create(
+                    thread_id=st.session_state.thread.id,
+                    assistant_id=assistant_id,
+                )
+            except Error as e:
+                st.error(f"An error occurred while creating a run: {e}")
+                return  # Stop execution if the run can't be created
 
             run = wait_for_complete(run, st.session_state.thread)
 
