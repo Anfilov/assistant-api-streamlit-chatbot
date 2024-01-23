@@ -1,5 +1,5 @@
 import openai
-from openai.error import OpenAIError
+from openai import OpenAIError  # Updated import for OpenAIError
 import time
 import streamlit as st
 
