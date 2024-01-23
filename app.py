@@ -1,4 +1,5 @@
-from openai import OpenAI, Error
+import openai
+from openai.error import OpenAIError
 import time
 import streamlit as st
 
@@ -11,9 +12,11 @@ def main():
 
     api_key = st.secrets["OPENAI_API_KEY"]
     assistant_id = st.secrets["ASSISTANT_ID"]
+    openai.api_key = api_key
 
     # Initiate st.session_state
-    st.session_state.client = OpenAI(api_key=api_key)
+    if "client" not in st.session_state:
+        st.session_state.client = openai
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -22,7 +25,7 @@ def main():
         st.session_state.start_chat = False
 
     if st.session_state.client:
-       st.session_state.start_chat = True
+        st.session_state.start_chat = True
 
     if st.session_state.start_chat:
         # Display existing messages in the chat
@@ -39,10 +42,10 @@ def main():
                 st.markdown(prompt)
 
             # Create a thread
-            st.session_state.thread = st.session_state.client.beta.threads.create()
+            st.session_state.thread = st.session_state.client.Thread.create()
 
             # Add a Message to the thread
-            st.session_state.client.beta.threads.messages.create(
+            st.session_state.client.Message.create(
                 thread_id=st.session_state.thread.id,
                 role="user",
                 content=prompt,
@@ -50,18 +53,18 @@ def main():
 
             try:
                 # Create a run and tell the assistant at which thread to look at
-                run = st.session_state.client.beta.threads.runs.create(
+                run = st.session_state.client.Run.create(
                     thread_id=st.session_state.thread.id,
                     assistant_id=assistant_id,
                 )
-            except Error as e:
+            except OpenAIError as e:
                 st.error(f"An error occurred while creating a run: {e}")
                 return  # Stop execution if the run can't be created
 
             run = wait_for_complete(run, st.session_state.thread)
 
             # Once the run has completed, list the messages in the thread
-            replies = st.session_state.client.beta.threads.messages.list(
+            replies = st.session_state.client.Message.list(
                 thread_id=st.session_state.thread.id
             )
 
@@ -77,7 +80,7 @@ def main():
 def wait_for_complete(run, thread):
     # Continuously check the status of a run until it neither 'queued' nor 'in progress'
     while run.status == "queued" or run.status == "in_progress":
-        run = st.session_state.client.beta.threads.runs.retrieve(
+        run = st.session_state.client.Run.retrieve(
             thread_id=thread.id,
             run_id=run.id,
         )
@@ -104,7 +107,7 @@ def process_replies(replies):
                 # Handle file citations
                 if file_citation := getattr(annotation, "file_citation", None):
                     if file_citation.file_id:
-                        cited_file = st.session_state.client.files.retrieve(
+                        cited_file = st.session_state.client.File.retrieve(
                             file_citation.file_id
                         )
                         citations.append(
@@ -117,7 +120,7 @@ def process_replies(replies):
                 # Handle file paths
                 elif file_path := getattr(annotation, "file_path", None):
                     if file_path.file_id:
-                        cited_file = st.session_state.client.files.retrieve(
+                        cited_file = st.session_state.client.File.retrieve(
                             file_path.file_id
                         )
                         citations.append(
